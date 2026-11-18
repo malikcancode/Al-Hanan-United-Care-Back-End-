@@ -1,15 +1,12 @@
 import Doctor from "../models/Doctor.js";
 import Appointment from "../models/Appointment.js";
 import ApiError from "../utils/ApiError.js";
-import { removeUpload } from "../middlewares/upload.js";
+import { removeUpload, saveUpload } from "../middlewares/upload.js";
 import { logActivity } from "../utils/activity.js";
 import { applyOrder } from "../utils/reorder.js";
 
 const FIELDS = ["name", "specialty", "qualifications", "order", "isActive"];
 const pick = (body) => Object.fromEntries(FIELDS.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
-
-const uploadedPath = (file) => (file ? `/uploads/doctors/${file.filename}` : undefined);
-
 // GET /api/doctors  (public, active only)
 export const getActiveDoctors = async (req, res) => {
   const doctors = await Doctor.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
@@ -44,7 +41,7 @@ export const getAllDoctors = async (req, res) => {
 
 // POST /api/doctors  (admin, multipart: optional "photo")
 export const createDoctor = async (req, res) => {
-  const data = { ...pick(req.body), photoUrl: uploadedPath(req.file) || "" };
+  const data = { ...pick(req.body), photoUrl: (await saveUpload(req.file, "doctors")) || "" };
   if (data.order === undefined) {
     const last = await Doctor.findOne().sort({ order: -1 }).select("order").lean();
     data.order = (last?.order || 0) + 1;
@@ -62,7 +59,7 @@ export const updateDoctor = async (req, res) => {
   const oldPhoto = doctor.photoUrl;
   doctor.set(pick(req.body));
 
-  if (req.file) doctor.photoUrl = uploadedPath(req.file);
+  if (req.file) doctor.photoUrl = await saveUpload(req.file, "doctors");
   else if (req.body.removePhoto === "true") doctor.photoUrl = "";
 
   await doctor.save();

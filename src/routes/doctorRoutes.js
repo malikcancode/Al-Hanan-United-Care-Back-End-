@@ -13,7 +13,7 @@ import { imageUpload } from "../middlewares/upload.js";
 import { idParam, doctorRules, reorderRules } from "../validators/index.js";
 
 const router = Router();
-const photo = imageUpload("doctors").single("photo");
+const photo = imageUpload().single("photo");
 
 router.get("/", getActiveDoctors);
 router.get("/all", protect, getAllDoctors);

@@ -5,7 +5,18 @@ import morgan from "morgan";
 import routes from "./routes/index.js";
 import notFound from "./middlewares/notFound.js";
 import errorHandler from "./middlewares/errorHandler.js";
-import { UPLOADS_ROOT } from "./middlewares/upload.js";
+import { UPLOADS_ROOT, serveUpload } from "./middlewares/upload.js";
+import connectDB from "./config/db.js";
+import ApiError from "./utils/ApiError.js";
+
+const ensureDB = async (req, res, next) => {
+  try {
+    await connectDB();
+  } catch {
+    throw new ApiError(503, "Database is unavailable. Please try again shortly.");
+  }
+  next();
+};
 
 const app = express();
 
@@ -28,10 +39,13 @@ app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true }));
 app.use(express.json({ limit: "1mb" }));
 if (process.env.NODE_ENV !== "test") app.use(morgan("dev"));
 
-app.use("/uploads", express.static(UPLOADS_ROOT, { maxAge: "7d" }));
-
+app.get("/", (req, res) => res.json({ success: true, name: "Al Hanna United Care API", health: "/api/health" }));
 app.get("/api/health", (req, res) => res.json({ success: true, status: "ok" }));
-app.use("/api", routes);
+
+app.use("/uploads", express.static(UPLOADS_ROOT, { maxAge: "7d" }));
+app.get("/uploads/:id", ensureDB, serveUpload);
+
+app.use("/api", ensureDB, routes);
 
 app.use(notFound);
 app.use(errorHandler);
